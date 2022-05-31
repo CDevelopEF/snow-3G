@@ -54,6 +54,11 @@ int main(int args, char *argv[])
     key[3] = 0x13141516;
 
     key_init(&init_c, key);
+
+    uint32_t momentPlease = FSM_clock(&init_c);
+    uint32_t keystream1 = momentPlease ^ LFSR_clock(&init_c, momentPlease);
+    printf("%0.X\n", keystream1);
+
     return 0;
 }
 
@@ -82,41 +87,38 @@ void key_init(Snow_p* vctr, uint32_t *key) {
     vctr->lfsr[13] = key[1] ^ 1;
     vctr->lfsr[14] = key[2] ^ 1;
     vctr->lfsr[15] = key[3] ^ 1;
-    int i = 0;
 
-        cout<<"Antes de Mover El Registro"<<endl;
-        for(int i = 0; i < 16; i++){
-        printf("%08x\n", vctr->lfsr[i]);
-        }
-        cout<<"#############################"<<endl;
+    int i = 0;
     while (i < 64) {
         uint32_t fsm_out = FSM_clock(vctr);
         uint32_t S_1 = xtime(vctr->lfsr[6] ^ vctr->lfsr[12] ^ vctr->lfsr[15] ^ fsm_out);
         LFSR_clock(vctr, S_1);
-        cout<<"FINAL DEL MOVIMIENTO" << i << endl;
-        for(int i = 0; i < 16; i++){
-        printf("%08x\n", vctr->lfsr[i]);
-        }
         i++;
     }
 
 
 }
+
 uint32_t LFSR_clock(Snow_p* s, uint32_t el) {
 
     uint32_t temp = s->lfsr[15];
-    for(int i = 0; i < 15; ++i) {
-        rotate(s->lfsr.begin(), s->lfsr.begin() + 1, s->lfsr.end());
-    }
+    rotate(s->lfsr.begin(), s->lfsr.begin() + 15, s->lfsr.end());
     s->lfsr[0] = el;
     return temp;
 
 }
-//Finite State Machine
 
+/***
+     The FSM_clock function receives a structure of type Snow_p, uses the first
+      value of the Shift Register with linear feedback as input of the FSM
+     (Finite State Machine), proceeds to Add it modulo 2^32 with R1 and xor with
+      R2, the function returns the output of the FSM and updates its internal state.
+***/
 uint32_t FSM_clock(Snow_p *vctr) {
+    //R1 and R2 are both set to zero
     vctr->R1 = 0;
     vctr->R2 = 0;
+
     uint32_t FSMout =   ((vctr->lfsr[0] + vctr->R1) & 0xFFFFFFFF)     ^ vctr->R2;
     uint32_t newR1 = rot32(((FSMout + vctr->R2)     & 0xFFFFFFFF), 7) ^ vctr->R1;
 
